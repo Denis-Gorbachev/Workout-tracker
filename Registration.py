@@ -1,7 +1,6 @@
-from fastapi import FastAPI, HTTPException, Depends
-import uvicorn
-import datetime
-import jwt
+from fastapi import FastAPI, HTTPException, Depends, status
+import uvicorn, datetime, jwt
+from typing import Optional
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -21,11 +20,36 @@ class UserCreate(BaseModel):
     username: str
     password: str
 
+class ExerciseCreate(BaseModel):
+    name: str
+    description: str
+    category: str
+
+class WorkoutCreate(BaseModel):
+    exercise_id: int
+    sets: int
+    repetitions: int
+    weights: Optional[float]    
+
 def hash_pwd(pwd):
     return pwd_context.hash(pwd)
 
-async def get_user(db, username):
-    user = (await db.scalars(select(Users).where(Users.username == username))).first()
+async def get_user(db = Depends(get_session), token = Depends(oauth2_scheme)):
+    credetials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        data = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user = data.get("sub")
+        if user is None:
+            raise credentials_exception
+    except jwt.PyJWTError:
+        raise credetials_exception
+    user = (await db.scalars(select(Users).where(Users.username == user))).first()
+    if user is None:
+        raise credetials_exception
     return user
 
 def verify_pwd(pwd, hashed_pwd):
@@ -68,7 +92,20 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: async_sess
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token({"sub":form_data.username})
-    return access_token
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/create_workout")
+async def create_workout(workout: WorkoutCreate, db: async_session = Depends(get_session), cur_user: UserCreate = Depends(get_user)):
+    workout = Workout(
+        user_id = cur_user.id,
+        exercise_id = workout.exercise_id,
+        sets = workout.sets,
+        repetitions = workout.repetitions,
+        weights = workout.weights
+    )
+    db.add(workout)
+    await db.commit()
+    return {"message":"Workout created successfully"}
 
 @app.on_event("startup")
 async def startup_event():
