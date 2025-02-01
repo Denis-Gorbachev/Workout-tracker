@@ -31,6 +31,9 @@ class WorkoutCreate(BaseModel):
     repetitions: int
     weights: Optional[float]    
 
+class WorkoutDelete(BaseModel):
+    exercise_id: int
+
 def hash_pwd(pwd):
     return pwd_context.hash(pwd)
 
@@ -96,6 +99,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: async_sess
 
 @app.post("/create_workout")
 async def create_workout(workout: WorkoutCreate, db: async_session = Depends(get_session), cur_user: UserCreate = Depends(get_user)):
+    res = await db.execute(select(Workout).where(Workout.exercise_id == workout.exercise_id, Workout.user_id == cur_user.id))
+    if res:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Workout already exists"
+        )
     workout = Workout(
         user_id = cur_user.id,
         exercise_id = workout.exercise_id,
@@ -106,6 +115,36 @@ async def create_workout(workout: WorkoutCreate, db: async_session = Depends(get
     db.add(workout)
     await db.commit()
     return {"message":"Workout created successfully"}
+
+@app.post("/update_workout")
+async def update_workout(update_workout: WorkoutCreate, db: async_session = Depends(get_session), cur_user: UserCreate = Depends(get_user)):
+    update_data = update_workout.dict(exclude_unset=True)
+    update_stmt = update(Workout).where(Workout.exercise_id == updated_workout.exercise_id, Workout.user_id == cur_user.id).values(update_data)
+    await db.execute(update_stmt)
+    await db.commit()
+    return {"message":"Workout updated successfully"}
+
+@app.delete("/delete_workout")
+async def delete_workout(delete_workout: WorkoutDelete, db: async_session = Depends(get_session), cur_user: UserCreate = Depends(get_user)):
+    delete_stmt = delete(Workout).where(Workout.exercise_id == delete_workout.exercise_id, Workout.user_id == cur_user.id)
+    await db.execute(delete_stmt)
+    await db.commit()
+    return {"message":"Workout deleted successfully"}
+
+@app.get("/list_workouts")
+async def list_workouts(db: async_session = Depends(get_session), cur_user: UserCreate = Depends(get_user)):
+    result = await db.execute(select(Workout).where(Workout.user_id == cur_user.id))
+    workouts = result.scalars().all()
+    json_data = []
+    if workouts:
+        for workout in workouts:
+            json_data.append({
+                "exercise_id": workout.exercise_id,
+                "sets":workout.sets,
+                "repetitions":workout.repetitions,
+                "weights":workout.weights
+            })
+    return json_data
 
 @app.on_event("startup")
 async def startup_event():

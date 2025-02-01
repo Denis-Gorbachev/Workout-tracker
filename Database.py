@@ -1,7 +1,6 @@
-from sqlalchemy import String, text, Integer, Float, ForeignKey
+from sqlalchemy import String, text, Integer, Float, ForeignKey, update, delete, fetchone
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Mapped, mapped_column, sessionmaker, declarative_base, relationship
-# from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
 import psycopg2
