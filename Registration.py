@@ -47,7 +47,7 @@ async def get_user(db = Depends(get_session), token = Depends(oauth2_scheme)):
             raise credentials_exception
     except jwt.PyJWTError:
         raise credetials_exception
-    user = (await db.scalars(select(Users).where(Users.username == user))).first()
+    user = (await db.scalars(select(User).where(User.username == user))).first()
     if user is None:
         raise credetials_exception
     return user
@@ -63,7 +63,7 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 async def authenticate_user(db, username, pwd):
-    stmt = select(Users).where(Users.username == username)
+    stmt = select(User).where(User.username == username)
     result = await db.execute(stmt)
     user = result.scalars().first()
     if not user or not verify_pwd(pwd, user.pwd_hash):
@@ -75,7 +75,7 @@ app = FastAPI()
 @app.post("/signup")
 async def signup(user: UserCreate, db: AsyncSession = Depends(get_session)):
     hashed_pwd = hash_pwd(user.password)
-    user = Users(username = user.username, pwd_hash = hashed_pwd)
+    user = User(username = user.username, pwd_hash = hashed_pwd)
     db.add(user)
     await db.commit()
     await db.refresh(user)
