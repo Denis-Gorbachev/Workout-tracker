@@ -1,38 +1,21 @@
 from fastapi import FastAPI, HTTPException, Depends, status
+from sqlalchemy import update, delete
 import uvicorn, datetime, jwt
-from typing import Optional
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel
 from sqlalchemy.future import select
-
+import os
+import asyncio
 from Database import *
+from Models import *
 from Schemas import *
 
-SECRET_KEY = "secret"
+SECRET_KEY = os.environ.get("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
-class UserCreate(BaseModel):
-    username: str
-    password: str
-
-class ExerciseCreate(BaseModel):
-    name: str
-    description: str
-    category: str
-
-class WorkoutCreate(BaseModel):
-    exercise_id: int
-    sets: int
-    repetitions: int
-    weights: Optional[float]    
-
-class WorkoutDelete(BaseModel):
-    exercise_id: int
 
 def hash_pwd(pwd):
     return pwd_context.hash(pwd)
